@@ -4,13 +4,7 @@ import { ref, computed } from "vue";
 type DirectionType = "left" | "right" | "up" | "down";
 type CoordinateType = { x: number; y: number };
 type GameStatusType = "playing" | "stop" | "lose" | "win" | "pause";
-type BodyDirectionType =
-  | "│"
-  | "─"
-  | "┌"
-  | "┐"
-  | "┘"
-  | "└";
+type BodyDirectionType = "│" | "─" | "┌" | "┐" | "┘" | "└";
 
 type DirectionBodyMap = {
   [key in `${DirectionType}-${DirectionType}`]?: BodyDirectionType;
@@ -39,18 +33,12 @@ const directionHeadMap: Record<DirectionType, BodyDirectionType> = {
 };
 
 const mapGradient: Record<BodyDirectionType, string> = {
-  '─':
-    "linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
-  '│':
-    "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
-  "┐":
-    "linear-gradient(to bottom left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%,rgba(255,255,255,0) 100%)",
-  "┌":
-    "linear-gradient(to bottom right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-  "┘":
-    "linear-gradient(to top left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-  "└":
-    "linear-gradient(to top right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
+  "─": "linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
+  "│": "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
+  "┐": "linear-gradient(to bottom left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%,rgba(255,255,255,0) 100%)",
+  "┌": "linear-gradient(to bottom right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
+  "┘": "linear-gradient(to top left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
+  "└": "linear-gradient(to top right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
 };
 
 type SnakeBodyType = {
@@ -118,8 +106,7 @@ const move = {
     });
   },
   head(snakeBody: SnakeBodyType) {
-    const movement = this[`_${direction.value}`]
-    movement(snakeBody)
+    this[`_${direction.value}`](snakeBody);
   },
   body(snakeBody: SnakeBodyType, nextBodyPart: SnakeBodyType) {
     snakeBody.previousPos = snakeBody.currentPos;
@@ -173,9 +160,10 @@ const paintBodyPart = (body: SnakeBodyType) => {
   }
 };
 
-const paintHead = (body: SnakeBodyType) => setCellStyle(body.currentPos, {
+const paintHead = (body: SnakeBodyType) =>
+  setCellStyle(body.currentPos, {
     background: mapGradient[directionHeadMap[body.currentPos.direction]],
-  })
+  });
 
 const paintFruit = (elCoor: CoordinateType | HTMLDivElement) =>
   setCellStyle(elCoor, { background: "red" });
