@@ -3,28 +3,32 @@ import { ref, computed } from "vue";
 
 type DirectionType = "left" | "right" | "up" | "down";
 type CoordinateType = { x: number; y: number };
+type GameStatusType = "playing" | "stop" | "lose" | "win" | "pause";
 type SnakeBodyType = {
   currentPos: CoordinateType;
   previousPos: CoordinateType;
 };
 
 const HEAD_START = { currentPos: { x: 0, y: 0 }, previousPos: { x: 0, y: 0 } };
-const INTERVAL = 200;
+const DIFF_WIN = 0;
+const showControls = ref(false);
+const velocity = ref(200);
 const rows = ref(10);
 const cols = ref(7);
 const snake = ref<SnakeBodyType[]>([]);
 const direction = ref<DirectionType>("left");
-const cellRefs = ref([]);
+const cellRefs = ref<HTMLDivElement[]>([]);
 const intervalId = ref();
-const fruit = ref<CoordinateType | null>(null);
-const currentGame = ref<"playing" | "stop" | "lose" | "win" | "pause">("stop");
-const points = ref(0);
+const fruitsStart = ref(10);
+const fruits = ref<CoordinateType[]>([]);
+const currentGame = ref<GameStatusType>("stop");
 const ms = ref(0);
 
 const board = computed(() =>
   Array.from({ length: cols.value }, () => Array.from({ length: rows.value }))
 );
 
+/* Movements */
 const move = {
   _base(snakeBody: SnakeBodyType, cb: () => void) {
     cleanCell(snakeBody.currentPos);
@@ -70,28 +74,6 @@ const move = {
   },
 };
 
-const setColorCell = (elCoor: CoordinateType | HTMLElement, color: string) => {
-  const isCoor = isElementOrCoor(elCoor);
-  const element = isCoor ? getCellElement(elCoor.x, elCoor.y) : elCoor;
-  element.style.backgroundColor = color;
-};
-
-const isElementOrCoor = (
-  elCoor: CoordinateType | HTMLElement
-): elCoor is CoordinateType => "x" in elCoor;
-
-const cleanCell = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, "gray");
-
-const paintBodyPart = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, "lightgreen");
-
-const paintHead = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, "green");
-
-const paintFruit = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, "red");
-
 const moveSnake = () => {
   snake.value.forEach((bodyPart, i) => {
     if (i === 0) move.head(bodyPart);
@@ -104,6 +86,32 @@ const moveSnake = () => {
   checkSnakeColision();
 };
 
+/* Board painting */
+const cleanBoard = () => cellRefs.value.forEach(cleanCell);
+
+const setColorCell = (elCoor: CoordinateType | HTMLDivElement, color: string) => {
+  const isCoor = isElementOrCoor(elCoor);
+  const element = isCoor ? getCellElement(elCoor) : elCoor;
+  element.style.backgroundColor = color;
+};
+
+const isElementOrCoor = (
+  elCoor: CoordinateType | HTMLDivElement
+): elCoor is CoordinateType => "x" in elCoor;
+
+const cleanCell = (elCoor: CoordinateType | HTMLDivElement) =>
+  setColorCell(elCoor, "gray");
+
+const paintBodyPart = (elCoor: CoordinateType | HTMLDivElement) =>
+  setColorCell(elCoor, "lightgreen");
+
+const paintHead = (elCoor: CoordinateType | HTMLDivElement) =>
+  setColorCell(elCoor, "green");
+
+const paintFruit = (elCoor: CoordinateType | HTMLDivElement) =>
+  setColorCell(elCoor, "red");
+
+/* Colision */
 const checkColision = (pos1: CoordinateType, pos2: CoordinateType) =>
   pos1.x === pos2.x && pos1.y === pos2.y;
 
@@ -117,79 +125,79 @@ const checkSnakeColision = () => {
 };
 
 const checkFruitColision = (pos: CoordinateType) =>
-  snake.value.some((bodyPart) => checkColision(pos, bodyPart.currentPos));
+  snake.value.some((bodyPart) => checkColision(pos, bodyPart.currentPos)) ||
+  fruits.value.some((fruit) => checkColision(pos, fruit));
 
+/* Snake */
 const growSnake = () => {
   const lastBodyPart = snake.value.at(-1);
   if (!lastBodyPart)
     return console.error("There is no last body part (growSnake)");
 
   const currentPos = { ...lastBodyPart.currentPos };
-  if (direction.value === "right") currentPos.x--;
-  if (direction.value === "left") currentPos.x++;
-  if (direction.value === "up") currentPos.y++;
-  if (direction.value === "down") currentPos.y--;
 
   snake.value.push({ currentPos, previousPos: { ...currentPos } });
 };
 
-const checkFruit = () => {
-  if (!fruit.value) return console.error("There is no fruit (checkFruit)");
+const generateRandomSnakeStart = ()=>{
+  const head = structuredClone(HEAD_START)
+  const randomCoor = getRandomCoordinate()
+  head.currentPos = randomCoor
+  head.previousPos = structuredClone(randomCoor)
+  snake.value = [head];
+}
 
-  const [head] = snake.value;
-  const hasColision = checkColision(head.currentPos, fruit.value);
-  if (hasColision) fruitEaten();
-};
-
-const setDirection = (dir: DirectionType) => {
-  direction.value = dir;
-};
-
-const getRandom = (n: number) => Math.floor(Math.random() * n + 1);
-
-const getCellElement = (x: number, y: number) =>
-  cellRefs.value[x * rows.value + y];
-
-const fruitEaten = () => {
-  points.value++;
-  fruit.value = null;
+/* Fruit */
+const fruitEaten = (index: number) => {
+  fruits.value.splice(index, 1);
   growSnake();
   const hasWon = checkWin();
   if (!hasWon) showFruit();
 };
 
-const checkWin = () => {
-  const DIFF_WIN = 2;
-  const total = snake.value.length;
-  const hasWon = rows.value * cols.value - DIFF_WIN === total;
-  if (hasWon) win();
-  return hasWon;
+const addFruit = (coor: CoordinateType) => {
+  fruits.value.push(coor);
+  paintFruit(coor);
 };
 
 const showFruit = () => {
-  if (fruit.value) return;
-
   let x = null,
     y = null;
   let hasColision;
 
   do {
-    x = getRandom(cols.value - 1);
-    y = getRandom(rows.value - 1);
+    const coordinate = getRandomCoordinate();
+    x = coordinate.x;
+    y = coordinate.y;
+
     hasColision = checkFruitColision({ x, y });
     if (hasColision) {
       x = null;
       y = null;
     }
-    // TODO: fix infinity loop
-  } while (hasColision);
+  } while (
+    hasColision &&
+    snake.value.length + fruits.value.length < rows.value * cols.value
+  );
 
-  if (x && y) {
-    fruit.value = { x, y };
-    paintFruit(fruit.value);
+  if (x !== null && y !== null) {
+    addFruit({ x, y });
   }
 };
 
+const checkFruit = () => {
+  const [head] = snake.value;
+  const index = fruits.value.findIndex((fruit) =>
+    checkColision(head.currentPos, fruit)
+  );
+  if (index !== -1) fruitEaten(index);
+};
+
+const generateFruits = ()=>{
+  Array.from({ length: fruitsStart.value }).forEach(showFruit)
+}
+
+/* Game loop */
 const startInterval = () => {
   intervalId.value = setInterval(() => {
     const start = performance.now();
@@ -198,20 +206,27 @@ const startInterval = () => {
     const end = performance.now();
 
     ms.value = Math.round((end - start) * 100) / 100;
-  }, INTERVAL);
+  }, velocity.value);
 };
 
 const stopInterval = () => {
   clearInterval(intervalId.value);
 };
 
-const cleanBoard = () => cellRefs.value.forEach(cleanCell);
+/* Game status handlers */
+const checkWin = () => {
+  const total = snake.value.length;
+  const totalCells = rows.value * cols.value;
+  const hasWon = totalCells === total + DIFF_WIN;
+
+  if (hasWon) win();
+  return hasWon;
+};
 
 const reset = () => {
-  snake.value = [structuredClone(HEAD_START)];
-  direction.value = "right";
-  points.value = 0;
-  fruit.value = null;
+  generateRandomSnakeStart()
+  generateRandomDirection()
+  fruits.value = [];
   ms.value = 0;
   cleanBoard();
 };
@@ -225,7 +240,7 @@ const resetGame = () => {
 const play = () => {
   if (currentGame.value !== "pause") {
     reset();
-    showFruit();
+    generateFruits()
   }
   currentGame.value = "playing";
   startInterval();
@@ -233,25 +248,42 @@ const play = () => {
 };
 
 const pause = () => {
-  stop();
-  currentGame.value = "pause";
+  stop("pause");
 };
 
 const lose = () => {
-  stop();
-  currentGame.value = "lose";
+  stop("lose");
 };
 
 const win = () => {
-  stop();
-  currentGame.value = "win";
+  stop("win");
 };
 
-const stop = () => {
-  currentGame.value = "stop";
+const stop = (status: GameStatusType = "stop") => {
+  currentGame.value = status;
   stopInterval();
   document.removeEventListener("keyup", checkKey);
 };
+
+/* Extra methods */
+const generateRandomDirection = ()=>{
+  const directions:DirectionType[] = ['left','down','up','right']
+  setDirection(directions[getRandom(directions.length)])
+}
+
+const setDirection = (dir: DirectionType) => {
+  direction.value = dir;
+};
+
+const getRandom = (n: number) => Math.floor(Math.random() * n);
+
+const getRandomCoordinate = (): CoordinateType => ({
+  x: getRandom(cols.value),
+  y: getRandom(rows.value),
+});
+
+const getCellElement = ({ x, y }: CoordinateType) =>
+  cellRefs.value[x * rows.value + y];
 
 function checkKey(e: KeyboardEvent) {
   if (["ArrowUp", "w"].includes(e.key)) {
@@ -279,13 +311,37 @@ function checkKey(e: KeyboardEvent) {
         Reset
       </button>
     </div>
+    <br />
+    <div class="flex">
+      <label><strong>Controls:</strong></label>
+      <input type="checkbox" id="showControls" v-model="showControls" />
+    </div>
+    <br />
+    <div v-if="showControls">
+      <div class="input-container flex">
+        <label>Velocity:</label>
+        <input type="text" id="velocity" v-model="velocity" />
+      </div>
+      <div class="input-container flex">
+        <label>Rows:</label>
+        <input type="text" id="rows" v-model="rows" />
+      </div>
+      <div class="input-container flex">
+        <label>Cols:</label>
+        <input type="text" id="cols" v-model="cols" />
+      </div>
+      <div class="input-container flex">
+        <label>Fruits start:</label>
+        <input type="text" id="fruitsStart" v-model="fruitsStart" />
+      </div>
+    </div>
     <h1 v-if="['win', 'lose'].includes(currentGame)">
       <span v-if="currentGame === 'win'">You Won!</span>
       <span v-if="currentGame === 'lose'">You Lose!</span>
     </h1>
 
     <br />
-    <h2>Points: {{ points }}</h2>
+    <h2>Score: {{ snake.length }}</h2>
     <p>{{ ms }}ms</p>
     <br />
     <div class="board">
@@ -328,5 +384,11 @@ function checkKey(e: KeyboardEvent) {
 h1,
 h2 {
   margin: 0;
+}
+
+.input-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  text-align: end;
 }
 </style>
