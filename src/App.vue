@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onBeforeMount, onMounted, computed } from 'vue';
+import { ref, computed } from "vue";
 
-type DirectionType = 'left' | 'right' | 'up' | 'down';
+type DirectionType = "left" | "right" | "up" | "down";
 type CoordinateType = { x: number; y: number };
 type SnakeBodyType = {
   currentPos: CoordinateType;
@@ -13,17 +13,62 @@ const INTERVAL = 200;
 const rows = ref(10);
 const cols = ref(7);
 const snake = ref<SnakeBodyType[]>([]);
-const direction = ref<DirectionType>('left');
+const direction = ref<DirectionType>("left");
 const cellRefs = ref([]);
 const intervalId = ref();
 const fruit = ref<CoordinateType | null>(null);
-const currentGame = ref<'playing' | 'stop' | 'lose' | 'win' | 'pause'>('stop');
+const currentGame = ref<"playing" | "stop" | "lose" | "win" | "pause">("stop");
 const points = ref(0);
 const ms = ref(0);
 
 const board = computed(() =>
   Array.from({ length: cols.value }, () => Array.from({ length: rows.value }))
 );
+
+const move = {
+  _base(snakeBody: SnakeBodyType, cb: () => void) {
+    cleanCell(snakeBody.currentPos);
+    snakeBody.previousPos = { ...snakeBody.currentPos };
+    cb();
+    paintHead(snakeBody.currentPos);
+  },
+  _right(snakeBody: SnakeBodyType) {
+    this._base(snakeBody, () => {
+      if (snakeBody.currentPos.x === cols.value - 1) snakeBody.currentPos.x = 0;
+      else snakeBody.currentPos.x++;
+    });
+  },
+  _left(snakeBody: SnakeBodyType) {
+    this._base(snakeBody, () => {
+      if (snakeBody.currentPos.x === 0) snakeBody.currentPos.x = cols.value - 1;
+      else snakeBody.currentPos.x--;
+    });
+  },
+  _down(snakeBody: SnakeBodyType) {
+    this._base(snakeBody, () => {
+      if (snakeBody.currentPos.y === rows.value - 1) snakeBody.currentPos.y = 0;
+      else snakeBody.currentPos.y++;
+    });
+  },
+  _up(snakeBody: SnakeBodyType) {
+    this._base(snakeBody, () => {
+      if (snakeBody.currentPos.y === 0) snakeBody.currentPos.y = rows.value - 1;
+      else snakeBody.currentPos.y--;
+    });
+  },
+  head(snakeBody: SnakeBodyType) {
+    if (direction.value === "right") this._right(snakeBody);
+    if (direction.value === "left") this._left(snakeBody);
+    if (direction.value === "up") this._up(snakeBody);
+    if (direction.value === "down") this._down(snakeBody);
+  },
+  body(snakeBody: SnakeBodyType, nextBodyPart: SnakeBodyType) {
+    snakeBody.previousPos = snakeBody.currentPos;
+    snakeBody.currentPos = nextBodyPart.previousPos;
+    cleanCell(snakeBody.previousPos);
+    paintBodyPart(snakeBody.currentPos);
+  },
+};
 
 const setColorCell = (elCoor: CoordinateType | HTMLElement, color: string) => {
   const isCoor = isElementOrCoor(elCoor);
@@ -33,75 +78,26 @@ const setColorCell = (elCoor: CoordinateType | HTMLElement, color: string) => {
 
 const isElementOrCoor = (
   elCoor: CoordinateType | HTMLElement
-): elCoor is CoordinateType => 'x' in elCoor;
+): elCoor is CoordinateType => "x" in elCoor;
 
 const cleanCell = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, 'gray');
+  setColorCell(elCoor, "gray");
 
 const paintBodyPart = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, 'lightgreen');
+  setColorCell(elCoor, "lightgreen");
 
 const paintHead = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, 'green');
+  setColorCell(elCoor, "green");
 
 const paintFruit = (elCoor: CoordinateType | HTMLElement) =>
-  setColorCell(elCoor, 'red');
-
-const move = (snakeBody: SnakeBodyType, cb: () => void) => {
-  cleanCell(snakeBody.currentPos);
-  snakeBody.previousPos = { ...snakeBody.currentPos };
-  cb();
-  paintHead(snakeBody.currentPos);
-};
-
-const moveRight = (snakeBody: SnakeBodyType) => {
-  move(snakeBody, () => {
-    if (snakeBody.currentPos.x === cols.value - 1) snakeBody.currentPos.x = 0;
-    else snakeBody.currentPos.x++;
-  });
-};
-
-const moveLeft = (snakeBody: SnakeBodyType) => {
-  move(snakeBody, () => {
-    if (snakeBody.currentPos.x === 0) snakeBody.currentPos.x = cols.value - 1;
-    else snakeBody.currentPos.x--;
-  });
-};
-
-const moveDown = (snakeBody: SnakeBodyType) => {
-  move(snakeBody, () => {
-    if (snakeBody.currentPos.y === rows.value - 1) snakeBody.currentPos.y = 0;
-    else snakeBody.currentPos.y++;
-  });
-};
-
-const moveUp = (snakeBody: SnakeBodyType) => {
-  move(snakeBody, () => {
-    if (snakeBody.currentPos.y === 0) snakeBody.currentPos.y = rows.value - 1;
-    else snakeBody.currentPos.y--;
-  });
-};
-
-const moveHead = (bodyPart: SnakeBodyType) => {
-  if (direction.value === 'right') moveRight(bodyPart);
-  if (direction.value === 'left') moveLeft(bodyPart);
-  if (direction.value === 'up') moveUp(bodyPart);
-  if (direction.value === 'down') moveDown(bodyPart);
-};
-
-const moveBody = (bodyPart: SnakeBodyType, nextBodyPart: SnakeBodyType) => {
-  bodyPart.previousPos = bodyPart.currentPos;
-  bodyPart.currentPos = nextBodyPart.previousPos;
-  cleanCell(bodyPart.previousPos);
-  paintBodyPart(bodyPart.currentPos);
-};
+  setColorCell(elCoor, "red");
 
 const moveSnake = () => {
   snake.value.forEach((bodyPart, i) => {
-    if (i === 0) moveHead(bodyPart);
+    if (i === 0) move.head(bodyPart);
     else {
       const nextBodyPart = snake.value[i - 1];
-      moveBody(bodyPart, nextBodyPart);
+      move.body(bodyPart, nextBodyPart);
     }
   });
 
@@ -125,16 +121,21 @@ const checkFruitColision = (pos: CoordinateType) =>
 
 const growSnake = () => {
   const lastBodyPart = snake.value.at(-1);
+  if (!lastBodyPart)
+    return console.error("There is no last body part (growSnake)");
+
   const currentPos = { ...lastBodyPart.currentPos };
-  if (direction.value === 'right') currentPos.x--;
-  if (direction.value === 'left') currentPos.x++;
-  if (direction.value === 'up') currentPos.y++;
-  if (direction.value === 'down') currentPos.y--;
+  if (direction.value === "right") currentPos.x--;
+  if (direction.value === "left") currentPos.x++;
+  if (direction.value === "up") currentPos.y++;
+  if (direction.value === "down") currentPos.y--;
 
   snake.value.push({ currentPos, previousPos: { ...currentPos } });
 };
 
 const checkFruit = () => {
+  if (!fruit.value) return console.error("There is no fruit (checkFruit)");
+
   const [head] = snake.value;
   const hasColision = checkColision(head.currentPos, fruit.value);
   if (hasColision) fruitEaten();
@@ -196,7 +197,7 @@ const startInterval = () => {
     checkFruit();
     const end = performance.now();
 
-    ms.value = (end - start).toFixed(2);
+    ms.value = Math.round((end - start) * 100) / 100;
   }, INTERVAL);
 };
 
@@ -208,7 +209,7 @@ const cleanBoard = () => cellRefs.value.forEach(cleanCell);
 
 const reset = () => {
   snake.value = [structuredClone(HEAD_START)];
-  direction.value = 'right';
+  direction.value = "right";
   points.value = 0;
   fruit.value = null;
   ms.value = 0;
@@ -222,45 +223,45 @@ const resetGame = () => {
 };
 
 const play = () => {
-  if (currentGame.value !== 'pause') {
+  if (currentGame.value !== "pause") {
     reset();
     showFruit();
   }
-  currentGame.value = 'playing';
+  currentGame.value = "playing";
   startInterval();
-  document.addEventListener('keyup', checkKey);
+  document.addEventListener("keyup", checkKey);
 };
 
 const pause = () => {
   stop();
-  currentGame.value = 'pause';
+  currentGame.value = "pause";
 };
 
 const lose = () => {
   stop();
-  currentGame.value = 'lose';
+  currentGame.value = "lose";
 };
 
 const win = () => {
   stop();
-  currentGame.value = 'win';
+  currentGame.value = "win";
 };
 
 const stop = () => {
-  currentGame.value = 'stop';
+  currentGame.value = "stop";
   stopInterval();
-  document.removeEventListener('keyup', checkKey);
+  document.removeEventListener("keyup", checkKey);
 };
 
-function checkKey(e) {
-  if ([38, 87].includes(e.keyCode)) {
-    direction.value !== 'down' && setDirection('up');
-  } else if ([40, 83].includes(e.keyCode)) {
-    direction.value !== 'up' && setDirection('down');
-  } else if ([37, 65].includes(e.keyCode)) {
-    direction.value !== 'right' && setDirection('left');
-  } else if ([39, 68].includes(e.keyCode)) {
-    direction.value !== 'left' && setDirection('right');
+function checkKey(e: KeyboardEvent) {
+  if (["ArrowUp", "w"].includes(e.key)) {
+    direction.value !== "down" && setDirection("up");
+  } else if (["ArrowDown", "s"].includes(e.key)) {
+    direction.value !== "up" && setDirection("down");
+  } else if (["ArrowLeft", "a"].includes(e.key)) {
+    direction.value !== "right" && setDirection("left");
+  } else if (["ArrowRight", "d"].includes(e.key)) {
+    direction.value !== "left" && setDirection("right");
   }
 }
 </script>
@@ -269,7 +270,7 @@ function checkKey(e) {
   <div class="container">
     <div class="flex">
       <button @click="currentGame === 'playing' ? pause() : play()">
-        {{ currentGame === 'playing' ? 'Pause' : 'Play' }}
+        {{ currentGame === "playing" ? "Pause" : "Play" }}
       </button>
       <button
         @click="resetGame"
@@ -288,8 +289,8 @@ function checkKey(e) {
     <p>{{ ms }}ms</p>
     <br />
     <div class="board">
-      <div class="cols" v-for="(col, x) of board">
-        <div class="cell" v-for="(cell, y) of col" ref="cellRefs"></div>
+      <div class="cols" v-for="(col, x) of board" :key="x">
+        <div class="cell" v-for="(_, y) of col" :key="y" ref="cellRefs"></div>
       </div>
     </div>
   </div>
