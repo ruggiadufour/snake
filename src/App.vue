@@ -89,10 +89,15 @@ const moveSnake = () => {
 /* Board painting */
 const cleanBoard = () => cellRefs.value.forEach(cleanCell);
 
-const setColorCell = (elCoor: CoordinateType | HTMLDivElement, color: string) => {
+const setCellStyle = (
+  elCoor: CoordinateType | HTMLDivElement,
+  style: Partial<Pick<CSSStyleDeclaration, "background" | "borderRadius">>
+) => {
   const isCoor = isElementOrCoor(elCoor);
   const element = isCoor ? getCellElement(elCoor) : elCoor;
-  element.style.backgroundColor = color;
+
+  element.style.background = style.background || "";
+  element.style.borderRadius = style.borderRadius || "";
 };
 
 const isElementOrCoor = (
@@ -100,16 +105,16 @@ const isElementOrCoor = (
 ): elCoor is CoordinateType => "x" in elCoor;
 
 const cleanCell = (elCoor: CoordinateType | HTMLDivElement) =>
-  setColorCell(elCoor, "gray");
+  setCellStyle(elCoor, { background: "gray" });
 
 const paintBodyPart = (elCoor: CoordinateType | HTMLDivElement) =>
-  setColorCell(elCoor, "lightgreen");
+  setCellStyle(elCoor, { background: "lightgreen" });
 
 const paintHead = (elCoor: CoordinateType | HTMLDivElement) =>
-  setColorCell(elCoor, "green");
+  setCellStyle(elCoor, { background: "green" });
 
 const paintFruit = (elCoor: CoordinateType | HTMLDivElement) =>
-  setColorCell(elCoor, "red");
+  setCellStyle(elCoor, { background: "red" });
 
 /* Colision */
 const checkColision = (pos1: CoordinateType, pos2: CoordinateType) =>
@@ -139,13 +144,13 @@ const growSnake = () => {
   snake.value.push({ currentPos, previousPos: { ...currentPos } });
 };
 
-const generateRandomSnakeStart = ()=>{
-  const head = structuredClone(HEAD_START)
-  const randomCoor = getRandomCoordinate()
-  head.currentPos = randomCoor
-  head.previousPos = structuredClone(randomCoor)
+const generateRandomSnakeStart = () => {
+  const head = structuredClone(HEAD_START);
+  const randomCoor = getRandomCoordinate();
+  head.currentPos = randomCoor;
+  head.previousPos = structuredClone(randomCoor);
   snake.value = [head];
-}
+};
 
 /* Fruit */
 const fruitEaten = (index: number) => {
@@ -193,9 +198,9 @@ const checkFruit = () => {
   if (index !== -1) fruitEaten(index);
 };
 
-const generateFruits = ()=>{
-  Array.from({ length: fruitsStart.value }).forEach(showFruit)
-}
+const generateFruits = () => {
+  Array.from({ length: fruitsStart.value }).forEach(showFruit);
+};
 
 /* Game loop */
 const startInterval = () => {
@@ -224,8 +229,8 @@ const checkWin = () => {
 };
 
 const reset = () => {
-  generateRandomSnakeStart()
-  generateRandomDirection()
+  generateRandomSnakeStart();
+  generateRandomDirection();
   fruits.value = [];
   ms.value = 0;
   cleanBoard();
@@ -240,7 +245,7 @@ const resetGame = () => {
 const play = () => {
   if (currentGame.value !== "pause") {
     reset();
-    generateFruits()
+    generateFruits();
   }
   currentGame.value = "playing";
   startInterval();
@@ -266,10 +271,10 @@ const stop = (status: GameStatusType = "stop") => {
 };
 
 /* Extra methods */
-const generateRandomDirection = ()=>{
-  const directions:DirectionType[] = ['left','down','up','right']
-  setDirection(directions[getRandom(directions.length)])
-}
+const generateRandomDirection = () => {
+  const directions: DirectionType[] = ["left", "down", "up", "right"];
+  setDirection(directions[getRandom(directions.length)]);
+};
 
 const setDirection = (dir: DirectionType) => {
   direction.value = dir;
