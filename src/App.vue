@@ -4,12 +4,72 @@ import { ref, computed } from "vue";
 type DirectionType = "left" | "right" | "up" | "down";
 type CoordinateType = { x: number; y: number };
 type GameStatusType = "playing" | "stop" | "lose" | "win" | "pause";
-type SnakeBodyType = {
-  currentPos: CoordinateType;
-  previousPos: CoordinateType;
+type BodyDirectionType =
+  | "vertical"
+  | "horizontal"
+  | "up-right"
+  | "up-left"
+  | "down-left"
+  | "down-right";
+
+type DirectionBodyMap = {
+  [key in `${DirectionType}-${DirectionType}`]?: BodyDirectionType;
 };
 
-const HEAD_START = { currentPos: { x: 0, y: 0 }, previousPos: { x: 0, y: 0 } };
+const directionBodyMap: DirectionBodyMap = {
+  "left-left": "horizontal",
+  "right-right": "horizontal",
+  "down-down": "vertical",
+  "up-up": "vertical",
+
+  "up-left": "up-left",
+  "right-down": "up-left",
+
+  "up-right": "up-right",
+  "left-down": "up-right",
+
+  "down-left": "down-left",
+  "right-up": "down-left",
+
+  "down-right": "down-right",
+  "left-up": "down-right",
+};
+
+const directionHeadMap: Record<DirectionType, BodyDirectionType> = {
+  down: "vertical",
+  up: "vertical",
+  left: "horizontal",
+  right: "horizontal",
+};
+
+const mapGradient: Record<BodyDirectionType, string> = {
+  horizontal:
+    "linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
+  vertical:
+    "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
+  "up-left":
+    "linear-gradient(to bottom left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%,rgba(255,255,255,0) 100%)",
+  "up-right":
+    "linear-gradient(to bottom right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
+  "down-left":
+    "linear-gradient(to top left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
+  "down-right":
+    "linear-gradient(to top right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
+};
+
+type SnakeBodyType = {
+  currentPos: CoordinateType & {
+    direction: DirectionType;
+  };
+  previousPos: CoordinateType & {
+    direction: DirectionType;
+  };
+};
+
+const HEAD_START: SnakeBodyType = {
+  currentPos: { x: 0, y: 0, direction: "left" },
+  previousPos: { x: 0, y: 0, direction: "left" },
+};
 const DIFF_WIN = 0;
 const showControls = ref(false);
 const velocity = ref(200);
@@ -32,9 +92,10 @@ const board = computed(() =>
 const move = {
   _base(snakeBody: SnakeBodyType, cb: () => void) {
     cleanCell(snakeBody.currentPos);
+    snakeBody.currentPos.direction = direction.value;
     snakeBody.previousPos = { ...snakeBody.currentPos };
     cb();
-    paintHead(snakeBody.currentPos);
+    paintHead(snakeBody);
   },
   _right(snakeBody: SnakeBodyType) {
     this._base(snakeBody, () => {
@@ -70,7 +131,7 @@ const move = {
     snakeBody.previousPos = snakeBody.currentPos;
     snakeBody.currentPos = nextBodyPart.previousPos;
     cleanCell(snakeBody.previousPos);
-    paintBodyPart(snakeBody.currentPos);
+    paintBodyPart(snakeBody);
   },
 };
 
@@ -107,11 +168,20 @@ const isElementOrCoor = (
 const cleanCell = (elCoor: CoordinateType | HTMLDivElement) =>
   setCellStyle(elCoor, { background: "gray" });
 
-const paintBodyPart = (elCoor: CoordinateType | HTMLDivElement) =>
-  setCellStyle(elCoor, { background: "lightgreen" });
+const paintBodyPart = (body: SnakeBodyType) => {
+  const directionBody =
+    directionBodyMap[
+      `${body.previousPos.direction}-${body.currentPos.direction}`
+    ];
 
-const paintHead = (elCoor: CoordinateType | HTMLDivElement) =>
-  setCellStyle(elCoor, { background: "green" });
+  if (directionBody) {
+    setCellStyle(body.currentPos, { background: mapGradient[directionBody] });
+  }
+};
+
+const paintHead = (body: SnakeBodyType) => setCellStyle(body.currentPos, {
+    background: mapGradient[directionHeadMap[body.currentPos.direction]],
+  })
 
 const paintFruit = (elCoor: CoordinateType | HTMLDivElement) =>
   setCellStyle(elCoor, { background: "red" });
@@ -147,8 +217,10 @@ const growSnake = () => {
 const generateRandomSnakeStart = () => {
   const head = structuredClone(HEAD_START);
   const randomCoor = getRandomCoordinate();
-  head.currentPos = randomCoor;
-  head.previousPos = structuredClone(randomCoor);
+  head.currentPos.x = randomCoor.x;
+  head.currentPos.y = randomCoor.y;
+  head.currentPos.direction = "left";
+  head.previousPos = structuredClone(head.currentPos);
   snake.value = [head];
 };
 
