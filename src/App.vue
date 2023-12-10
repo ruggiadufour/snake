@@ -5,55 +5,51 @@ type DirectionType = "left" | "right" | "up" | "down";
 type CoordinateType = { x: number; y: number };
 type GameStatusType = "playing" | "stop" | "lose" | "win" | "pause";
 type BodyDirectionType =
-  | "vertical"
-  | "horizontal"
-  | "up-right"
-  | "up-left"
-  | "down-left"
-  | "down-right";
+  | "│"
+  | "─"
+  | "┌"
+  | "┐"
+  | "┘"
+  | "└";
 
 type DirectionBodyMap = {
   [key in `${DirectionType}-${DirectionType}`]?: BodyDirectionType;
 };
 
 const directionBodyMap: DirectionBodyMap = {
-  "left-left": "horizontal",
-  "right-right": "horizontal",
-  "down-down": "vertical",
-  "up-up": "vertical",
-
-  "up-left": "up-left",
-  "right-down": "up-left",
-
-  "up-right": "up-right",
-  "left-down": "up-right",
-
-  "down-left": "down-left",
-  "right-up": "down-left",
-
-  "down-right": "down-right",
-  "left-up": "down-right",
+  "left-left": "─",
+  "right-right": "─",
+  "down-down": "│",
+  "up-up": "│",
+  "up-left": "┐",
+  "right-down": "┐",
+  "up-right": "┌",
+  "left-down": "┌",
+  "down-left": "┘",
+  "right-up": "┘",
+  "down-right": "└",
+  "left-up": "└",
 };
 
 const directionHeadMap: Record<DirectionType, BodyDirectionType> = {
-  down: "vertical",
-  up: "vertical",
-  left: "horizontal",
-  right: "horizontal",
+  down: "│",
+  up: "│",
+  left: "─",
+  right: "─",
 };
 
 const mapGradient: Record<BodyDirectionType, string> = {
-  horizontal:
+  '─':
     "linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
-  vertical:
+  '│':
     "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
-  "up-left":
+  "┐":
     "linear-gradient(to bottom left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%,rgba(255,255,255,0) 100%)",
-  "up-right":
+  "┌":
     "linear-gradient(to bottom right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-  "down-left":
+  "┘":
     "linear-gradient(to top left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-  "down-right":
+  "└":
     "linear-gradient(to top right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
 };
 
@@ -122,10 +118,8 @@ const move = {
     });
   },
   head(snakeBody: SnakeBodyType) {
-    if (direction.value === "right") this._right(snakeBody);
-    if (direction.value === "left") this._left(snakeBody);
-    if (direction.value === "up") this._up(snakeBody);
-    if (direction.value === "down") this._down(snakeBody);
+    const movement = this[`_${direction.value}`]
+    movement(snakeBody)
   },
   body(snakeBody: SnakeBodyType, nextBodyPart: SnakeBodyType) {
     snakeBody.previousPos = snakeBody.currentPos;
