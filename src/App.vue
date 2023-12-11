@@ -5,9 +5,46 @@ type DirectionType = "left" | "right" | "up" | "down";
 type CoordinateType = { x: number; y: number };
 type GameStatusType = "playing" | "stop" | "lose" | "win" | "pause";
 type BodyDirectionType = "│" | "─" | "┌" | "┐" | "┘" | "└";
+type EndsType = "^" | "v" | "<" | "o" | ">";
+type SnakeBodyType = {
+  currentPos: CoordinateType & {
+    direction: DirectionType;
+  };
+  previousPos: CoordinateType & {
+    direction: DirectionType;
+  };
+};
 
 type DirectionBodyMap = {
   [key in `${DirectionType}-${DirectionType}`]?: BodyDirectionType;
+};
+
+const headMap: Record<DirectionType | "single", EndsType> = {
+  down: "v",
+  up: "^",
+  left: "<",
+  right: ">",
+  single: "o",
+};
+
+const tailMap: Record<DirectionType, EndsType> = {
+  up: "v",
+  down: "^",
+  right: "<",
+  left: ">",
+};
+
+const SNAKE_COLOR = "#00CF37"; //00CF37
+const SNAKE_SHADOW_COLOR = "#242424"; //242424
+const CELL_COLOR = "gray";
+const FRUIT_COLOR =`radial-gradient(ellipse farthest-corner at center center, red 0%, ${CELL_COLOR} 100%, ${CELL_COLOR} 100%)`;
+
+const endsGradientMap: Record<EndsType, string> = {
+  "^": `radial-gradient(ellipse farthest-corner at bottom center, ${SNAKE_COLOR} 0%, ${SNAKE_SHADOW_COLOR} 64%, ${SNAKE_SHADOW_COLOR} 100%)`,
+  v: `radial-gradient(ellipse farthest-corner at top center, ${SNAKE_COLOR} 0%, ${SNAKE_SHADOW_COLOR} 64%, ${SNAKE_SHADOW_COLOR} 100%)`,
+  "<": `radial-gradient(ellipse farthest-corner at right center, ${SNAKE_COLOR} 0%, ${SNAKE_SHADOW_COLOR} 64%, ${SNAKE_SHADOW_COLOR} 100%)`,
+  ">": `radial-gradient(ellipse farthest-corner at left center, ${SNAKE_COLOR} 0%, ${SNAKE_SHADOW_COLOR} 64%, ${SNAKE_SHADOW_COLOR} 100%)`,
+  o: `radial-gradient(ellipse farthest-corner at center center, ${SNAKE_COLOR} 0%, ${SNAKE_SHADOW_COLOR} 64%, ${SNAKE_SHADOW_COLOR} 100%)`,
 };
 
 const directionBodyMap: DirectionBodyMap = {
@@ -25,29 +62,34 @@ const directionBodyMap: DirectionBodyMap = {
   "left-up": "└",
 };
 
-const directionHeadMap: Record<DirectionType, BodyDirectionType> = {
-  down: "│",
-  up: "│",
-  left: "─",
-  right: "─",
-};
-
-const mapGradient: Record<BodyDirectionType, string> = {
-  "─": "linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
-  "│": "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(5,185,36,1) 50%, rgba(255,255,255,0) 100%)",
-  "┐": "linear-gradient(to bottom left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%,rgba(255,255,255,0) 100%)",
-  "┌": "linear-gradient(to bottom right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-  "┘": "linear-gradient(to top left,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-  "└": "linear-gradient(to top right,  rgba(255,255,255,0) 0%,  rgba(255,255,255,0) 50%, #05b924 50%, rgba(255,255,255,0) 100%)",
-};
-
-type SnakeBodyType = {
-  currentPos: CoordinateType & {
-    direction: DirectionType;
-  };
-  previousPos: CoordinateType & {
-    direction: DirectionType;
-  };
+const bodyGradientMap: Record<
+  BodyDirectionType,
+  { background: string; clipPath: string }
+> = {
+  "─": {
+    background: `linear-gradient(0deg, ${SNAKE_SHADOW_COLOR} 0%, ${SNAKE_COLOR} 50%, ${SNAKE_SHADOW_COLOR} 100%)`,
+    clipPath: "",
+  },
+  "│": {
+    background: `linear-gradient(90deg, ${SNAKE_SHADOW_COLOR} 0%, ${SNAKE_COLOR} 50%, ${SNAKE_SHADOW_COLOR} 100%)`,
+    clipPath: "",
+  },
+  "┐": {
+    background: `radial-gradient(ellipse farthest-side at bottom left, ${SNAKE_SHADOW_COLOR} 0%, ${SNAKE_COLOR} 50%, ${SNAKE_SHADOW_COLOR} 100%)`,
+    clipPath: "circle(100.0% at 0 100%)",
+  },
+  "┌": {
+    background: `radial-gradient(ellipse farthest-side at bottom right, ${SNAKE_SHADOW_COLOR} 0%, ${SNAKE_COLOR} 50%, ${SNAKE_SHADOW_COLOR} 100%)`,
+    clipPath: "circle(100.0% at 100% 100%)",
+  },
+  "┘": {
+    background: `radial-gradient(ellipse farthest-side at top left, ${SNAKE_SHADOW_COLOR} 0%, ${SNAKE_COLOR} 50%, ${SNAKE_SHADOW_COLOR} 100%)`,
+    clipPath: "circle(100.0% at 0 0)",
+  },
+  "└": {
+    background: `radial-gradient(ellipse farthest-side at top right, ${SNAKE_SHADOW_COLOR} 0%, ${SNAKE_COLOR} 50%, ${SNAKE_SHADOW_COLOR} 100%)`,
+    clipPath: "circle(100.0% at 100% 0)",
+  },
 };
 
 const HEAD_START: SnakeBodyType = {
@@ -76,7 +118,6 @@ const board = computed(() =>
 const move = {
   _base(snakeBody: SnakeBodyType, cb: () => void) {
     cleanCell(snakeBody.currentPos);
-    snakeBody.currentPos.direction = direction.value;
     snakeBody.previousPos = { ...snakeBody.currentPos };
     cb();
     paintHead(snakeBody);
@@ -106,13 +147,14 @@ const move = {
     });
   },
   head(snakeBody: SnakeBodyType) {
+    snakeBody.currentPos.direction = direction.value;
     this[`_${direction.value}`](snakeBody);
   },
-  body(snakeBody: SnakeBodyType, nextBodyPart: SnakeBodyType) {
+  body(snakeBody: SnakeBodyType, nextBodyPart: SnakeBodyType, isTail: boolean) {
     snakeBody.previousPos = snakeBody.currentPos;
     snakeBody.currentPos = nextBodyPart.previousPos;
     cleanCell(snakeBody.previousPos);
-    paintBodyPart(snakeBody);
+    paintBodyPart(snakeBody, isTail);
   },
 };
 
@@ -121,7 +163,7 @@ const moveSnake = () => {
     if (i === 0) move.head(bodyPart);
     else {
       const nextBodyPart = snake.value[i - 1];
-      move.body(bodyPart, nextBodyPart);
+      move.body(bodyPart, nextBodyPart, i === snake.value.length - 1);
     }
   });
 
@@ -133,13 +175,16 @@ const cleanBoard = () => cellRefs.value.forEach(cleanCell);
 
 const setCellStyle = (
   elCoor: CoordinateType | HTMLDivElement,
-  style: Partial<Pick<CSSStyleDeclaration, "background" | "borderRadius">>
+  style: Partial<
+    Pick<CSSStyleDeclaration, "background" | "borderRadius" | "clipPath">
+  >
 ) => {
   const isCoor = isElementOrCoor(elCoor);
   const element = isCoor ? getCellElement(elCoor) : elCoor;
 
   element.style.background = style.background || "";
   element.style.borderRadius = style.borderRadius || "";
+  element.style.clipPath = style.clipPath || "";
 };
 
 const isElementOrCoor = (
@@ -147,26 +192,34 @@ const isElementOrCoor = (
 ): elCoor is CoordinateType => "x" in elCoor;
 
 const cleanCell = (elCoor: CoordinateType | HTMLDivElement) =>
-  setCellStyle(elCoor, { background: "gray" });
+  setCellStyle(elCoor, { background: CELL_COLOR });
 
-const paintBodyPart = (body: SnakeBodyType) => {
+const paintBodyPart = (body: SnakeBodyType, isTail: boolean) => {
   const directionBody =
     directionBodyMap[
       `${body.previousPos.direction}-${body.currentPos.direction}`
     ];
 
   if (directionBody) {
-    setCellStyle(body.currentPos, { background: mapGradient[directionBody] });
+    const { background, clipPath } = bodyGradientMap[directionBody];
+    const tailBackground = endsGradientMap[tailMap[body.currentPos.direction]];
+    setCellStyle(body.currentPos, {
+      background: isTail ? tailBackground : background,
+      clipPath,
+    });
   }
 };
 
 const paintHead = (body: SnakeBodyType) =>
   setCellStyle(body.currentPos, {
-    background: mapGradient[directionHeadMap[body.currentPos.direction]],
+    background:
+      endsGradientMap[
+        headMap[snake.value.length === 1 ? "single" : body.currentPos.direction]
+      ],
   });
 
 const paintFruit = (elCoor: CoordinateType | HTMLDivElement) =>
-  setCellStyle(elCoor, { background: "red" });
+  setCellStyle(elCoor, { background: FRUIT_COLOR });
 
 /* Colision */
 const checkColision = (pos1: CoordinateType, pos2: CoordinateType) =>
@@ -420,13 +473,13 @@ function checkKey(e: KeyboardEvent) {
 
 .board {
   display: flex;
-  gap: 5px;
+  gap: 3px;
 }
 
 .cols {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
 }
 
 .cell {
